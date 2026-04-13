@@ -1,7 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-// import localFirebaseConfig from '../firebase-applet-config.json';
+
+// Use Vite's glob import to optionally load the local config file.
+// This prevents build errors on GitHub Actions where the file is missing.
+const localConfigs = import.meta.glob('../firebase-applet-config.json', { eager: true, import: 'default' });
+const localFirebaseConfig = (Object.values(localConfigs)[0] as any) || {};
 
 // Use environment variables if available (for GitHub Actions/Deploy), 
 // otherwise fallback to local config file
