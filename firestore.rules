@@ -22,6 +22,8 @@ service cloud.firestore {
       return isAuthenticated() && 
              (
                isOrganizer() ||
+               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.partyId == partyId) ||
                (exists(/databases/$(database)/documents/parties/$(partyId)) &&
                 request.auth.uid in get(/databases/$(database)/documents/parties/$(partyId)).data.members)
              );
@@ -40,9 +42,9 @@ service cloud.firestore {
     function isOrganizer() {
       return isAuthenticated() && 
              (
+               (request.auth.token.email in ["bottaridennis@gmail.com", "dennisbottari@gmail.com"] && request.auth.token.email_verified == true) ||
                (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer') || 
-               (request.auth.token.email == "bottaridennis@gmail.com" && request.auth.token.email_verified == true)
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer')
              );
     }
 
