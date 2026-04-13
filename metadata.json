@@ -1,0 +1,7 @@
+{
+  "name": "Party Pantry Manager",
+  "description": "Gestione dispensa per feste: monitora cibo, bevande e chi porta cosa. Statistiche in tempo reale per la festa perfetta!",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
