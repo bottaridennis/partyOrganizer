@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import localFirebaseConfig from '../firebase-applet-config.json';
+// import localFirebaseConfig from '../firebase-applet-config.json';
 
 // Use environment variables if available (for GitHub Actions/Deploy), 
 // otherwise fallback to local config file
