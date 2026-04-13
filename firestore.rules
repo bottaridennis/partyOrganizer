@@ -18,12 +18,15 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             (request.auth.token.email in ["bottaridennis@gmail.com", "dennisbottari@gmail.com"] && request.auth.token.email_verified == true);
+    }
+
     function isMemberOfParty(partyId) {
       return isAuthenticated() && 
              (
-               isOrganizer() ||
-               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.partyId == partyId) ||
+               isSuperAdmin() ||
                (exists(/databases/$(database)/documents/parties/$(partyId)) &&
                 request.auth.uid in get(/databases/$(database)/documents/parties/$(partyId)).data.members)
              );
@@ -32,7 +35,7 @@ service cloud.firestore {
     function isOrganizerOfParty(partyId) {
       return isAuthenticated() && 
              (
-               isOrganizer() ||
+               isSuperAdmin() ||
                (exists(/databases/$(database)/documents/parties/$(partyId)) &&
                 (get(/databases/$(database)/documents/parties/$(partyId)).data.ownerUid == request.auth.uid ||
                  get(/databases/$(database)/documents/parties/$(partyId)).data.memberRoles[request.auth.uid] == 'organizer'))
@@ -40,12 +43,7 @@ service cloud.firestore {
     }
 
     function isOrganizer() {
-      return isAuthenticated() && 
-             (
-               (request.auth.token.email in ["bottaridennis@gmail.com", "dennisbottari@gmail.com"] && request.auth.token.email_verified == true) ||
-               (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'organizer')
-             );
+      return isSuperAdmin();
     }
 
     // ===============================================================
@@ -200,11 +198,11 @@ service cloud.firestore {
                     isMemberOfParty(resource.data.partyId) &&
                     isValidProduct(request.resource.data) &&
                     request.resource.data.partyId == resource.data.partyId &&
-                    (isOrganizer() || resource.data.broughtBy == request.auth.uid || resource.data.broughtBy == 'common');
+                    (isOrganizerOfParty(resource.data.partyId) || resource.data.broughtBy == request.auth.uid || resource.data.broughtBy == 'common');
       
       allow delete: if isAuthenticated() && 
                     isMemberOfParty(resource.data.partyId) &&
-                    isOrganizer();
+                    isOrganizerOfParty(resource.data.partyId);
     }
 
     match /pantry_logs/{logId} {
@@ -216,11 +214,11 @@ service cloud.firestore {
       
       allow update, delete: if isAuthenticated() && 
                              isMemberOfParty(resource.data.partyId) &&
-                             isOrganizer();
+                             isOrganizerOfParty(resource.data.partyId);
     }
 
     match /participants/{participantId} {
-      allow read: if isAuthenticated() && (isOrganizer() || isMemberOfParty(resource.data.partyId));
+      allow read: if isAuthenticated() && (isSuperAdmin() || isMemberOfParty(resource.data.partyId));
       
       allow create: if isAuthenticated() && 
                       isMemberOfParty(request.resource.data.partyId) &&
@@ -233,25 +231,25 @@ service cloud.firestore {
       
       allow delete: if isAuthenticated() && 
                     isMemberOfParty(resource.data.partyId) &&
-                    isOrganizer();
+                    isOrganizerOfParty(resource.data.partyId);
     }
 
     match /categories/{id} {
       allow read: if isAuthenticated() && isMemberOfParty(resource.data.partyId);
       allow create, update: if isAuthenticated() && isMemberOfParty(request.resource.data.partyId) && isValidDictionaryItem(request.resource.data);
-      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizer();
+      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizerOfParty(resource.data.partyId);
     }
 
     match /groups/{id} {
       allow read: if isAuthenticated() && isMemberOfParty(resource.data.partyId);
       allow create, update: if isAuthenticated() && isMemberOfParty(request.resource.data.partyId) && isValidDictionaryItem(request.resource.data);
-      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizer();
+      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizerOfParty(resource.data.partyId);
     }
 
     match /participant_roles/{id} {
       allow read: if isAuthenticated() && isMemberOfParty(resource.data.partyId);
       allow create, update: if isAuthenticated() && isMemberOfParty(request.resource.data.partyId) && isValidDictionaryItem(request.resource.data);
-      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizer();
+      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizerOfParty(resource.data.partyId);
     }
 
     match /audit_logs/{logId} {
@@ -263,8 +261,8 @@ service cloud.firestore {
     match /product_requests/{requestId} {
       allow read: if isAuthenticated() && isMemberOfParty(resource.data.partyId);
       allow create: if isAuthenticated() && isMemberOfParty(request.resource.data.partyId) && isValidRequest(request.resource.data);
-      allow update: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && (isOrganizer() || (isOwner(resource.data.userId) && request.resource.data.status == resource.data.status));
-      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizer();
+      allow update: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && (isOrganizerOfParty(resource.data.partyId) || (isOwner(resource.data.userId) && request.resource.data.status == resource.data.status));
+      allow delete: if isAuthenticated() && isMemberOfParty(resource.data.partyId) && isOrganizerOfParty(resource.data.partyId);
     }
   }
 }
