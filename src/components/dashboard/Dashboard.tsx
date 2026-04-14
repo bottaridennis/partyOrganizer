@@ -106,8 +106,8 @@ export function Dashboard({ products, participants, logs }: DashboardProps) {
             <TrendingUp className="w-5 h-5 text-blue-600" />
             Spesa per Categoria
           </h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <div className="h-80 min-h-[320px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={stats.pieData}
@@ -138,8 +138,8 @@ export function Dashboard({ products, participants, logs }: DashboardProps) {
             <Users className="w-5 h-5 text-purple-600" />
             Contributo per Amico
           </h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <div className="h-80 min-h-[320px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats.barData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />

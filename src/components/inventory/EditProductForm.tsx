@@ -60,6 +60,36 @@ export function EditProductForm({
     { id: 'custom', label: 'Campi', icon: Plus },
   ];
 
+  const toggleLabel = (label: string) => {
+    const current = formData.labels || [];
+    let nextLabels: string[];
+
+    if (current.includes(label)) {
+      nextLabels = current.filter(l => l !== label);
+    } else {
+      nextLabels = [...current, label];
+    }
+    
+    setFormData({ ...formData, labels: nextLabels });
+  };
+
+  const toggleAlcoholic = (isAlcoholic: boolean) => {
+    const currentLabels = formData.labels || [];
+    let nextLabels = currentLabels.filter(l => l !== 'Alcolico' && l !== 'Analcolico');
+    nextLabels.push(isAlcoholic ? 'Alcolico' : 'Analcolico');
+    
+    setFormData({ 
+      ...formData, 
+      labels: nextLabels,
+      alcoholContent: isAlcoholic ? formData.alcoholContent : 0
+    });
+  };
+
+  const labelSuggestions = [
+    'Senza Glutine', 'Vegano', 'Vegetariano', 
+    'Fresco', 'Surgelato', 'Snack', 'Dolce', 'Salato'
+  ];
+
   return (
     <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
       <div className="p-4 md:p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
@@ -126,7 +156,7 @@ export function EditProductForm({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Prezzo (€)</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Prezzo Unitario (€)</label>
                     <div className="relative">
                       <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -148,7 +178,7 @@ export function EditProductForm({
                         onChange={e => setFormData({ ...formData, broughtBy: e.target.value })}
                       >
                         <option value="">In comune</option>
-                        {participants.map(p => <option key={p.id} value={p.id}>{p.name} {p.surname}</option>)}
+                        {participants.map(p => <option key={p.uid} value={p.uid}>{p.name} {p.surname}</option>)}
                       </select>
                     </div>
                   </div>
@@ -164,7 +194,17 @@ export function EditProductForm({
                     <select 
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
                       value={formData.category}
-                      onChange={e => setFormData({ ...formData, category: e.target.value })}
+                      onChange={e => {
+                        const newCategory = e.target.value;
+                        const newType = newCategory === 'Bevanda' ? 'drink' : 'food';
+                        setFormData({ 
+                          ...formData, 
+                          category: newCategory,
+                          type: newType,
+                          alcoholContent: newCategory === 'Bevanda' ? formData.alcoholContent : 0,
+                          fillLevel: newCategory === 'Bevanda' ? formData.fillLevel : 100
+                        });
+                      }}
                     >
                       <option value="">Seleziona Categoria</option>
                       {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -221,36 +261,70 @@ export function EditProductForm({
 
             {activeSection === 'details' && (
               <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Grado Alcolico (%)</label>
-                    <div className="relative">
-                      <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="number"
-                        step="0.1"
-                        placeholder="es. 5.0"
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-                        value={formData.alcoholContent || ''}
-                        onChange={e => setFormData({ ...formData, alcoholContent: parseFloat(e.target.value) || 0 })}
-                      />
+                {formData.category === 'Bevanda' && (
+                  <div className="space-y-6 p-4 bg-blue-50/30 rounded-2xl border border-blue-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                          formData.labels?.includes('Alcolico') ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
+                        )}>
+                          <Beer className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">Bevanda Alcolica?</p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Attiva per inserire la gradazione</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleAlcoholic(!formData.labels?.includes('Alcolico'))}
+                        className={cn(
+                          "w-12 h-6 rounded-full relative transition-all duration-300",
+                          formData.labels?.includes('Alcolico') ? "bg-red-500" : "bg-slate-200"
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
+                          formData.labels?.includes('Alcolico') ? "left-7" : "left-1"
+                        )} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {formData.labels?.includes('Alcolico') && (
+                        <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                          <label className="text-xs font-bold text-slate-500 uppercase ml-1">Grado Alcolico (%)</label>
+                          <div className="relative">
+                            <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input 
+                              type="number"
+                              step="0.1"
+                              placeholder="es. 5.0"
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                              value={formData.alcoholContent || ''}
+                              onChange={e => setFormData({ ...formData, alcoholContent: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Livello Riempimento (%)</label>
+                        <div className="relative">
+                          <Droplets className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="number"
+                            min="0"
+                            max="100"
+                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                            value={formData.fillLevel || 100}
+                            onChange={e => setFormData({ ...formData, fillLevel: parseInt(e.target.value) || 0 })}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Livello Riempimento (%)</label>
-                    <div className="relative">
-                      <Droplets className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input 
-                        type="number"
-                        min="0"
-                        max="100"
-                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-                        value={formData.fillLevel || 100}
-                        onChange={e => setFormData({ ...formData, fillLevel: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase ml-1">Allergeni</label>
@@ -262,14 +336,56 @@ export function EditProductForm({
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Etichette / Note</label>
-                  <input 
-                    placeholder="es. Bio, Senza Zucchero..."
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-                    value={formData.labels?.join(', ') || ''}
-                    onChange={e => setFormData({ ...formData, labels: e.target.value.split(',').map(s => s.trim()).filter(s => s !== '') })}
-                  />
+                <div className="space-y-4">
+                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Etichette</label>
+                  <div className="flex flex-wrap gap-2">
+                    {labelSuggestions.map(label => (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => toggleLabel(label)}
+                        className={cn(
+                          "px-4 py-2 rounded-full text-sm font-bold border transition-all",
+                          formData.labels?.includes(label)
+                            ? "bg-pink-500 text-white border-pink-400 shadow-md shadow-pink-100"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-pink-300"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <input 
+                      id="custom-label-edit"
+                      placeholder="Aggiungi etichetta personalizzata..."
+                      className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.currentTarget;
+                          if (input.value) {
+                            toggleLabel(input.value);
+                            input.value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById('custom-label-edit') as HTMLInputElement;
+                        if (input.value) {
+                          toggleLabel(input.value);
+                          input.value = '';
+                        }
+                      }}
+                      className="p-3 bg-pink-50 text-pink-600 rounded-xl hover:bg-pink-100 transition-all"
+                    >
+                      <Plus className="w-6 h-6" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

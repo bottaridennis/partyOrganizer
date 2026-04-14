@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
+  LayoutDashboard,
   LayoutGrid, 
   List as ListIcon, 
   Search, 
@@ -24,7 +25,10 @@ import {
   Users,
   FileText,
   Loader2,
-  Boxes
+  Boxes,
+  ShoppingBag,
+  PartyPopper,
+  Menu as MenuIcon
 } from 'lucide-react';
 import Barcode from 'react-barcode';
 
@@ -55,7 +59,7 @@ import { usePantryActions } from './hooks/usePantryActions';
 import { cn, cleanObject } from './lib/utils';
 import { logAudit } from './lib/audit';
 import { db } from './firebase';
-import { doc, updateDoc, addDoc, collection, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, setDoc, collection, writeBatch } from 'firebase/firestore';
 import { Product, Participant, PantryLog, Category, Group, ParticipantRole, ProductRequest, AuditLog } from './types';
 
 import { ParticipantContributionTable } from './components/employees/ParticipantContributionTable';
@@ -90,6 +94,7 @@ export default function App() {
   const [deletingItem, setDeletingItem] = useState<{ id: string, name: string, type: 'product' | 'participant' | 'log' | 'category' | 'group' | 'role' } | null>(null);
   const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
   const [partyModalMode, setPartyModalMode] = useState<'select' | 'create' | 'join'>('select');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Ensure current user has a participant record
   useEffect(() => {
@@ -97,7 +102,7 @@ export default function App() {
       const hasRecord = participants.some(m => m.uid === user.uid);
       if (!hasRecord) {
         const createMissingRecord = async () => {
-          await addDoc(collection(db, 'participants'), {
+          await setDoc(doc(db, 'participants', `member-${party.id}-${user.uid}`), {
             partyId: party.id,
             uid: user.uid,
             name: userProfile.displayName.split(' ')[0] || 'Amico',
@@ -349,7 +354,7 @@ export default function App() {
         </header>
 
         {/* View Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 lg:pb-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-32 lg:pb-8">
           {activeTab === 'dashboard' && (
             <Dashboard 
               products={products} 
@@ -451,17 +456,23 @@ export default function App() {
                 "grid gap-6",
                 viewMode === 'grid' ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1"
               )}>
-                {filteredProducts.map(product => (
-                  <ProductCard 
-                    key={product.id} 
-                    product={product} 
-                    viewMode={viewMode}
-                    onEdit={() => setEditingProduct(product)}
-                    onDelete={() => setDeletingItem({ id: product.id!, name: product.name, type: 'product' })}
-                    onMove={() => setMovingProduct(product)}
-                    canManage={isOrganizer || product.broughtBy === user?.uid}
-                  />
-                ))}
+                {filteredProducts.map(product => {
+                  const broughtByParticipant = participants.find(p => p.uid === product.broughtBy);
+                  const broughtByName = broughtByParticipant ? `${broughtByParticipant.name} ${broughtByParticipant.surname}` : undefined;
+                  
+                  return (
+                    <ProductCard 
+                      key={product.id} 
+                      product={product} 
+                      viewMode={viewMode}
+                      onEdit={() => setEditingProduct(product)}
+                      onDelete={() => setDeletingItem({ id: product.id!, name: product.name, type: 'product' })}
+                      onMove={() => setMovingProduct(product)}
+                      canManage={isOrganizer || product.broughtBy === user?.uid}
+                      broughtByName={broughtByName}
+                    />
+                  );
+                })}
               </div>
               {filteredProducts.length === 0 && (
                 <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-200">
@@ -600,7 +611,15 @@ export default function App() {
             <AddParticipantForm 
               groups={groups}
               roles={roles}
-              onAdd={async (data) => { await addDoc(collection(db, 'participants'), { ...data, partyId: userProfile.partyId }); setActiveTab('participants'); }}
+              onAdd={async (data) => { 
+                await addDoc(collection(db, 'participants'), { 
+                  ...data, 
+                  partyId: userProfile!.partyId,
+                  createdAt: new Date().toISOString(),
+                  uid: '' // Manual participants don't have a UID yet
+                }); 
+                setActiveTab('participants'); 
+              }}
               onCancel={() => setActiveTab('participants')}
             />
           )}
@@ -660,25 +679,148 @@ export default function App() {
         </main>
 
         {/* Mobile Navigation */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-3 flex justify-between items-center z-40 shadow-2xl">
-          <button onClick={() => setActiveTab('dashboard')} className={cn("p-2 rounded-xl transition-all", activeTab === 'dashboard' ? "text-blue-600 bg-blue-50" : "text-slate-400")}><LayoutGrid className="w-6 h-6" /></button>
-          <button onClick={() => setActiveTab('inventory')} className={cn("p-2 rounded-xl transition-all", activeTab === 'inventory' ? "text-blue-600 bg-blue-50" : "text-slate-400")}><Boxes className="w-6 h-6" /></button>
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex justify-between items-center z-40 shadow-2xl pb-safe">
+          <button 
+            onClick={() => setActiveTab('dashboard')} 
+            className={cn("flex flex-col items-center gap-1 p-2 rounded-xl transition-all", activeTab === 'dashboard' ? "text-blue-600 bg-blue-50" : "text-slate-400")}
+          >
+            <LayoutDashboard className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Home</span>
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('inventory')} 
+            className={cn("flex flex-col items-center gap-1 p-2 rounded-xl transition-all", activeTab === 'inventory' ? "text-blue-600 bg-blue-50" : "text-slate-400")}
+          >
+            <ShoppingBag className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Dispensa</span>
+          </button>
+
           <div className="relative -mt-12">
             <button 
-              onClick={() => {
-                if (activeTab === 'inventory') setActiveTab('add-product');
-                else if (activeTab === 'participants') setActiveTab('add-participant');
-                else setActiveTab('add-log');
-              }}
-              className="w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-200 flex items-center justify-center hover:bg-blue-700 transition-all active:scale-95"
+              onClick={() => setActiveTab('add-product')}
+              className="w-14 h-14 bg-pink-600 text-white rounded-2xl shadow-xl shadow-pink-200 flex items-center justify-center hover:bg-pink-700 transition-all active:scale-95 border-4 border-white"
             >
               <Plus className="w-8 h-8" />
             </button>
           </div>
-          {isOrganizer && <button onClick={() => setActiveTab('logs')} className={cn("p-2 rounded-xl transition-all", activeTab === 'logs' ? "text-blue-600 bg-blue-50" : "text-slate-400")}><History className="w-6 h-6" /></button>}
-          <button onClick={() => { setPartyModalMode('select'); setIsPartyModalOpen(true); }} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><Boxes className="w-6 h-6" /></button>
+
+          <button 
+            onClick={() => setActiveTab('participants')} 
+            className={cn("flex flex-col items-center gap-1 p-2 rounded-xl transition-all", activeTab === 'participants' ? "text-blue-600 bg-blue-50" : "text-slate-400")}
+          >
+            <Users className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Amici</span>
+          </button>
+
+          <button 
+            onClick={() => setIsMobileMenuOpen(true)} 
+            className={cn("flex flex-col items-center gap-1 p-2 rounded-xl transition-all", ["logs", "requests", "settings", "audit-logs", "contributions"].includes(activeTab) ? "text-blue-600 bg-blue-50" : "text-slate-400")}
+          >
+            <MenuIcon className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Menu</span>
+          </button>
         </nav>
       </div>
+
+      {/* Mobile Menu Modal */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-end justify-center sm:items-center p-0 sm:p-4">
+          <div className="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-4 duration-300">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Menu Extra</h3>
+                <p className="text-xs text-slate-500 font-medium">Altre sezioni della festa</p>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 hover:bg-white rounded-xl transition-all text-slate-400">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 grid grid-cols-2 gap-4">
+              {isOrganizer && (
+                <>
+                  <button 
+                    onClick={() => { setActiveTab('logs'); setIsMobileMenuOpen(false); }}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border transition-all",
+                      activeTab === 'logs' ? "bg-blue-50 border-blue-200 text-blue-600" : "bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-slate-200"
+                    )}
+                  >
+                    <History className="w-8 h-8" />
+                    <span className="text-sm font-bold">Movimenti</span>
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTab('requests'); setIsMobileMenuOpen(false); }}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border transition-all relative",
+                      activeTab === 'requests' ? "bg-blue-50 border-blue-200 text-blue-600" : "bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-slate-200"
+                    )}
+                  >
+                    <Bell className="w-8 h-8" />
+                    <span className="text-sm font-bold">Richieste</span>
+                    {(requests.filter(r => r.status === 'pending').length + pendingMembersCount) > 0 && (
+                      <span className="absolute top-4 right-4 w-6 h-6 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">
+                        {requests.filter(r => r.status === 'pending').length + pendingMembersCount}
+                      </span>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTab('contributions'); setIsMobileMenuOpen(false); }}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border transition-all",
+                      activeTab === 'contributions' ? "bg-blue-50 border-blue-200 text-blue-600" : "bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-slate-200"
+                    )}
+                  >
+                    <FileText className="w-8 h-8" />
+                    <span className="text-sm font-bold text-center">Report Contributi</span>
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTab('audit-logs'); setIsMobileMenuOpen(false); }}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border transition-all",
+                      activeTab === 'audit-logs' ? "bg-blue-50 border-blue-200 text-blue-600" : "bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-slate-200"
+                    )}
+                  >
+                    <ShieldCheck className="w-8 h-8" />
+                    <span className="text-sm font-bold">Audit Logs</span>
+                  </button>
+                  <button 
+                    onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border transition-all",
+                      activeTab === 'settings' ? "bg-blue-50 border-blue-200 text-blue-600" : "bg-slate-50 border-transparent text-slate-600 hover:bg-white hover:border-slate-200"
+                    )}
+                  >
+                    <Settings2 className="w-8 h-8" />
+                    <span className="text-sm font-bold">Impostazioni</span>
+                  </button>
+                </>
+              )}
+              <button 
+                onClick={() => { setPartyModalMode('select'); setIsPartyModalOpen(true); setIsMobileMenuOpen(false); }}
+                className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-slate-50 border border-transparent text-slate-600 hover:bg-white hover:border-slate-200 transition-all"
+              >
+                <PartyPopper className="w-8 h-8" />
+                <span className="text-sm font-bold">Gestisci Feste</span>
+              </button>
+              <button 
+                onClick={() => { setPartyModalMode('join'); setIsPartyModalOpen(true); setIsMobileMenuOpen(false); }}
+                className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-slate-50 border border-transparent text-slate-600 hover:bg-white hover:border-slate-200 transition-all"
+              >
+                <UserPlus className="w-8 h-8" />
+                <span className="text-sm font-bold text-center">Unisciti a Festa</span>
+              </button>
+              <button 
+                onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                className="flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 transition-all"
+              >
+                <LogOut className="w-8 h-8" />
+                <span className="text-sm font-bold">Esci</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {editingProduct && (

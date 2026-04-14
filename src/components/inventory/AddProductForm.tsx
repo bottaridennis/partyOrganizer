@@ -65,11 +65,27 @@ export function AddProductForm({
 
   const toggleLabel = (label: string) => {
     const current = formData.labels || [];
+    let nextLabels: string[];
+
     if (current.includes(label)) {
-      setFormData({ ...formData, labels: current.filter(l => l !== label) });
+      nextLabels = current.filter(l => l !== label);
     } else {
-      setFormData({ ...formData, labels: [...current, label] });
+      nextLabels = [...current, label];
     }
+    
+    setFormData({ ...formData, labels: nextLabels });
+  };
+
+  const toggleAlcoholic = (isAlcoholic: boolean) => {
+    const currentLabels = formData.labels || [];
+    let nextLabels = currentLabels.filter(l => l !== 'Alcolico' && l !== 'Analcolico');
+    nextLabels.push(isAlcoholic ? 'Alcolico' : 'Analcolico');
+    
+    setFormData({ 
+      ...formData, 
+      labels: nextLabels,
+      alcoholContent: isAlcoholic ? formData.alcoholContent : 0
+    });
   };
 
   const sections = [
@@ -79,7 +95,7 @@ export function AddProductForm({
   ];
 
   const labelSuggestions = [
-    'Alcolico', 'Analcolico', 'Senza Glutine', 'Vegano', 'Vegetariano', 
+    'Senza Glutine', 'Vegano', 'Vegetariano', 
     'Fresco', 'Surgelato', 'Snack', 'Dolce', 'Salato'
   ];
 
@@ -139,7 +155,17 @@ export function AddProductForm({
                       required
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
                       value={formData.category}
-                      onChange={e => setFormData({ ...formData, category: e.target.value })}
+                      onChange={e => {
+                        const newCategory = e.target.value;
+                        const newType = newCategory === 'Bevanda' ? 'drink' : 'food';
+                        setFormData({ 
+                          ...formData, 
+                          category: newCategory,
+                          type: newType,
+                          alcoholContent: newCategory === 'Bevanda' ? formData.alcoholContent : 0,
+                          fillLevel: newCategory === 'Bevanda' ? formData.fillLevel : 100
+                        });
+                      }}
                     >
                       <option value="Cibo">Cibo 🍕</option>
                       <option value="Bevanda">Bevanda 🍹</option>
@@ -161,7 +187,7 @@ export function AddProductForm({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Prezzo Totale (€)</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase ml-1">Prezzo Unitario (€)</label>
                     <div className="relative">
                       <Euro className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -206,32 +232,64 @@ export function AddProductForm({
                 </div>
 
                 {formData.category === 'Bevanda' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 uppercase ml-1">Gradazione Alcolica (%)</label>
-                      <div className="relative">
-                        <Beer className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input 
-                          type="number"
-                          step="0.1"
-                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-                          value={formData.alcoholContent}
-                          onChange={e => setFormData({ ...formData, alcoholContent: parseFloat(e.target.value) || 0 })}
-                        />
+                  <div className="space-y-6 p-4 bg-blue-50/30 rounded-2xl border border-blue-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                          formData.labels?.includes('Alcolico') ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
+                        )}>
+                          <Beer className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">Bevanda Alcolica?</p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Attiva per inserire la gradazione</p>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleAlcoholic(!formData.labels?.includes('Alcolico'))}
+                        className={cn(
+                          "w-12 h-6 rounded-full relative transition-all duration-300",
+                          formData.labels?.includes('Alcolico') ? "bg-red-500" : "bg-slate-200"
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm",
+                          formData.labels?.includes('Alcolico') ? "left-7" : "left-1"
+                        )} />
+                      </button>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-bold text-slate-500 uppercase ml-1">Livello Riempimento (%)</label>
-                      <div className="relative">
-                        <Droplet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-                          value={formData.fillLevel}
-                          onChange={e => setFormData({ ...formData, fillLevel: parseInt(e.target.value) || 0 })}
-                        />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {formData.labels?.includes('Alcolico') && (
+                        <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                          <label className="text-xs font-bold text-slate-500 uppercase ml-1">Gradazione Alcolica (%)</label>
+                          <div className="relative">
+                            <Beer className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                            <input 
+                              type="number"
+                              step="0.1"
+                              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                              value={formData.alcoholContent}
+                              onChange={e => setFormData({ ...formData, alcoholContent: parseFloat(e.target.value) || 0 })}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Livello Riempimento (%)</label>
+                        <div className="relative">
+                          <Droplet className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="number"
+                            min="0"
+                            max="100"
+                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
+                            value={formData.fillLevel}
+                            onChange={e => setFormData({ ...formData, fillLevel: parseInt(e.target.value) || 0 })}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -325,18 +383,18 @@ export function AddProductForm({
               </div>
             )}
 
-            <div className="pt-8 border-t border-slate-100 flex gap-4">
+            <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
               <button 
                 type="button"
                 onClick={onCancel}
-                className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
+                className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
               >
                 Annulla
               </button>
               <button 
                 type="submit"
                 disabled={isSaving}
-                className="flex-[2] py-4 bg-pink-600 text-white font-bold rounded-2xl hover:bg-pink-700 transition-all shadow-xl shadow-pink-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full sm:flex-[2] py-4 bg-pink-600 text-white font-bold rounded-2xl hover:bg-pink-700 transition-all shadow-xl shadow-pink-100 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
                 Aggiungi alla Festa

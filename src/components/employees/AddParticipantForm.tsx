@@ -139,18 +139,18 @@ export function AddParticipantForm({
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-100 flex gap-4">
+          <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row gap-4">
             <button 
               type="button"
               onClick={onCancel}
-              className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
+              className="w-full sm:flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all"
             >
               Annulla
             </button>
             <button 
               type="submit"
               disabled={isSaving}
-              className="flex-[2] py-4 bg-pink-600 text-white font-bold rounded-2xl hover:bg-pink-700 transition-all shadow-xl shadow-pink-100 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full sm:flex-[2] py-4 bg-pink-600 text-white font-bold rounded-2xl hover:bg-pink-700 transition-all shadow-xl shadow-pink-100 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
               Aggiungi Amico

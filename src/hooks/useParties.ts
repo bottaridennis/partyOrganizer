@@ -64,7 +64,7 @@ export function useParties(userProfile: UserProfile | null) {
     const userSnap = await getDoc(doc(db, 'users', ownerUid));
     const userData = userSnap.data();
     
-    batch.set(doc(db, 'participants', `member-${ownerUid}`), {
+    batch.set(doc(db, 'participants', `member-${id}-${ownerUid}`), {
       partyId: id,
       uid: ownerUid,
       name: userData?.displayName?.split(' ')[0] || 'Organizzatore',
@@ -105,7 +105,7 @@ export function useParties(userProfile: UserProfile | null) {
     const userSnap = await getDoc(doc(db, 'users', uid));
     const userData = userSnap.data();
 
-    batch.set(doc(db, 'participants', `member-${uid}`), {
+    batch.set(doc(db, 'participants', `member-${partyId}-${uid}`), {
       partyId: partyId,
       uid: uid,
       name: userData?.displayName?.split(' ')[0] || 'Nuovo',
