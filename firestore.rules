@@ -20,7 +20,10 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isAuthenticated() && 
-             (request.auth.token.email in ["bottaridennis@gmail.com", "dennisbottari@gmail.com"] && request.auth.token.email_verified == true);
+             (
+               request.auth.uid == "7LuDuLfoqXPs6sTq7jyRemsGkVm2" ||
+               (request.auth.token.email in ["bottaridennis@gmail.com", "dennisbottari@gmail.com"] && request.auth.token.email_verified == true)
+             );
     }
 
     function isMemberOfParty(partyId) {
@@ -28,7 +31,8 @@ service cloud.firestore {
              (
                isSuperAdmin() ||
                (exists(/databases/$(database)/documents/parties/$(partyId)) &&
-                request.auth.uid in get(/databases/$(database)/documents/parties/$(partyId)).data.members)
+                request.auth.uid in get(/databases/$(database)/documents/parties/$(partyId)).data.members) ||
+               (getAfter(/databases/$(database)/documents/parties/$(partyId)).data.ownerUid == request.auth.uid)
              );
     }
 
@@ -36,9 +40,11 @@ service cloud.firestore {
       return isAuthenticated() && 
              (
                isSuperAdmin() ||
-               (exists(/databases/$(database)/documents/parties/$(partyId)) &&
-                (get(/databases/$(database)/documents/parties/$(partyId)).data.ownerUid == request.auth.uid ||
-                 get(/databases/$(database)/documents/parties/$(partyId)).data.memberRoles[request.auth.uid] == 'organizer'))
+               (
+                 exists(/databases/$(database)/documents/parties/$(partyId)) && 
+                 (get(/databases/$(database)/documents/parties/$(partyId)).data.ownerUid == request.auth.uid ||
+                  get(/databases/$(database)/documents/parties/$(partyId)).data.memberRoles[request.auth.uid] == 'organizer')
+               )
              );
     }
 
@@ -221,11 +227,11 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (isSuperAdmin() || isMemberOfParty(resource.data.partyId));
       
       allow create: if isAuthenticated() && 
-                      isMemberOfParty(request.resource.data.partyId) &&
+                      (isMemberOfParty(request.resource.data.partyId) || request.resource.data.uid == request.auth.uid) &&
                       isValidParticipant(request.resource.data);
       
       allow update: if isAuthenticated() && 
-                    isMemberOfParty(resource.data.partyId) &&
+                    (isMemberOfParty(resource.data.partyId) || request.resource.data.uid == request.auth.uid) &&
                     isValidParticipant(request.resource.data) &&
                     request.resource.data.partyId == resource.data.partyId;
       
