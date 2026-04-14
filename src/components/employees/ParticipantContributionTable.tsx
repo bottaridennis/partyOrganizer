@@ -25,7 +25,7 @@ export function ParticipantContributionTable({
   const contributionData = React.useMemo(() => {
     return participants.map(part => {
       const broughtProducts = products.filter(p => p.broughtBy === part.id);
-      const totalSpent = broughtProducts.reduce((sum, p) => sum + (p.price || 0) * (p.quantity || 0), 0);
+      const totalSpent = broughtProducts.reduce((sum, p) => sum + (p.price || 0) * (p.initialQuantity || p.quantity || 0), 0);
       return { ...part, broughtProducts, totalSpent };
     }).filter(part => 
       part.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -98,8 +98,8 @@ export function ParticipantContributionTable({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-500">{p.category}</td>
-                      <td className="px-4 py-3 text-sm text-slate-700 text-center font-bold">{p.quantity}</td>
-                      <td className="px-4 py-3 text-sm text-slate-900 text-right font-black">€{((p.price || 0) * (p.quantity || 0)).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700 text-center font-bold">{p.initialQuantity || p.quantity}</td>
+                      <td className="px-4 py-3 text-sm text-slate-900 text-right font-black">€{((p.price || 0) * (p.initialQuantity || p.quantity || 0)).toFixed(2)}</td>
                     </tr>
                   )) : (
                     <tr>

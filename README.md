@@ -29,7 +29,7 @@ Se il tuo sito sarà ospitato su un percorso come `https://utente.github.io/nome
 
 ```typescript
 export default defineConfig({
-  base: '/nome-repo/',
+  base: '/partyOrganizer/',
   // ... altre config
 })
 ```

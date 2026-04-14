@@ -153,18 +153,18 @@ export function AddPantryLogForm({ products, participants, onAdd, onCancel }: Ad
           </div>
         </form>
 
-        <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex gap-3">
+        <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 px-6 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all"
+            className="w-full sm:flex-1 px-6 py-3 border-2 border-slate-200 text-slate-600 font-bold rounded-2xl hover:bg-slate-100 transition-all"
           >
             Annulla
           </button>
           <button
             onClick={handleSubmit}
             disabled={!participantId || selectedProducts.length === 0}
-            className="flex-[2] px-6 py-3 bg-pink-500 text-white font-bold rounded-2xl hover:bg-pink-600 shadow-lg shadow-pink-200 transition-all disabled:opacity-50 disabled:shadow-none"
+            className="w-full sm:flex-[2] px-6 py-3 bg-pink-500 text-white font-bold rounded-2xl hover:bg-pink-600 shadow-lg shadow-pink-200 transition-all disabled:opacity-50 disabled:shadow-none"
           >
             Registra Movimento
           </button>
