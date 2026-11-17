@@ -1,82 +1,59 @@
-import React, { useState } from 'react';
-import { Image as ImageIcon, Link as LinkIcon, Check } from 'lucide-react';
+import { useState } from 'react';
+import { Check, ImageOff, Link2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Input } from '../ui/Field';
 
-export function ImageSelector({ 
-  images, 
-  selected, 
-  onSelect 
-}: { 
-  images: string[], 
-  selected: string, 
-  onSelect: (url: string) => void 
-}) {
-  const [customUrl, setCustomUrl] = useState('');
-  const [showCustom, setShowCustom] = useState(false);
+export function ImageSelector({ images, selected, onSelect, round }: { images: string[]; selected: string; onSelect: (url: string) => void; round?: boolean }) {
+  const custom = !!selected && !images.includes(selected);
+  const [showUrl, setShowUrl] = useState(custom);
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <label className="text-xs font-bold text-slate-500 uppercase ml-1">Immagine Profilo / Icona</label>
-        <button 
-          type="button"
-          onClick={() => setShowCustom(!showCustom)}
-          className="text-[10px] font-bold text-blue-600 hover:underline flex items-center gap-1"
-        >
-          <LinkIcon className="w-3 h-3" />
-          {showCustom ? 'Scegli predefinite' : 'Usa URL personalizzato'}
-        </button>
+    <div className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 py-1">
+        <Option active={!selected} round={round} onClick={() => onSelect('')} label="Nessuna immagine">
+          <ImageOff className="w-5 h-5 text-ink-3" />
+        </Option>
+        {images.map(url => (
+          <Option key={url} active={selected === url} round={round} onClick={() => onSelect(url)} label="Immagine predefinita">
+            <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          </Option>
+        ))}
+        <Option active={custom || showUrl} round={round} onClick={() => setShowUrl(true)} label="Usa un link">
+          <Link2 className="w-5 h-5 text-ink-3" />
+        </Option>
       </div>
-
-      {showCustom ? (
-        <div className="flex gap-2">
-          <input 
-            type="url"
-            placeholder="https://esempio.com/immagine.jpg"
-            className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
-            value={customUrl}
-            onChange={(e) => setCustomUrl(e.target.value)}
-          />
-          <button 
-            type="button"
-            onClick={() => onSelect(customUrl)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all"
-          >
-            Applica
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
-          {images.map((url, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onSelect(url)}
-              className={cn(
-                "relative aspect-square rounded-xl overflow-hidden border-2 transition-all hover:scale-105",
-                selected === url ? "border-blue-600 shadow-lg shadow-blue-100" : "border-transparent opacity-70 hover:opacity-100"
-              )}
-            >
-              <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              {selected === url && (
-                <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center">
-                  <div className="bg-blue-600 text-white p-1 rounded-full shadow-lg">
-                    <Check className="w-3 h-3" />
-                  </div>
-                </div>
-              )}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setShowCustom(true)}
-            className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1 text-slate-400 hover:border-blue-400 hover:text-blue-500 transition-all"
-          >
-            <ImageIcon className="w-5 h-5" />
-            <span className="text-[8px] font-bold uppercase">Altro</span>
-          </button>
-        </div>
+      {(showUrl || custom) && (
+        <Input
+          type="url"
+          inputMode="url"
+          placeholder="Incolla il link di un'immagine (https://…)"
+          value={custom ? selected : ''}
+          onChange={e => onSelect(e.target.value.trim())}
+        />
       )}
     </div>
+  );
+}
+
+function Option({ active, onClick, children, label, round }: { active: boolean; onClick: () => void; children: React.ReactNode; label: string; round?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      className={cn(
+        'relative w-14 h-14 shrink-0 overflow-hidden grid place-items-center bg-surface-2 transition-all',
+        round ? 'rounded-full' : 'rounded-2xl',
+        active ? 'ring-[3px] ring-brand ring-offset-2 ring-offset-surface' : 'opacity-80 hover:opacity-100'
+      )}
+    >
+      {children}
+      {active && (
+        <span className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-brand text-white grid place-items-center">
+          <Check className="w-3 h-3" strokeWidth={3} />
+        </span>
+      )}
+    </button>
   );
 }

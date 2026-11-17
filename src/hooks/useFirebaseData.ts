@@ -1,26 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  orderBy, 
-  limit 
-} from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { 
-  Product, 
-  Participant, 
-  PantryLog, 
-  Category, 
-  Group, 
-  ParticipantRole, 
-  Party, 
-  ProductRequest, 
-  AuditLog 
-} from '../types';
+import { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot, DocumentData, QuerySnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
+import { Product, Participant, PantryLog, Category, Group, ParticipantRole, ProductRequest, AuditLog } from '../types';
 
-export function useFirebaseData(partyId: string | undefined, isOrganizer: boolean = false) {
+const byDesc = <T,>(key: keyof T) => (a: T, b: T) => String(b[key] ?? '').localeCompare(String(a[key] ?? ''));
+const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'it');
+
+/**
+ * Live data of the active party. Sorting happens on the client so the app
+ * does not depend on composite Firestore indexes.
+ */
+export function useFirebaseData(partyId: string | undefined, isOrganizer = false, enabled = true) {
   const [products, setProducts] = useState<Product[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [logs, setLogs] = useState<PantryLog[]>([]);
@@ -30,94 +20,54 @@ export function useFirebaseData(partyId: string | undefined, isOrganizer: boolea
   const [requests, setRequests] = useState<ProductRequest[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!partyId) {
+    setProducts([]); setParticipants([]); setLogs([]); setCategories([]);
+    setGroups([]); setRoles([]); setRequests([]); setAuditLogs([]);
+    setError(null);
+
+    if (!partyId || !enabled) {
       setLoading(false);
       return;
     }
-
     setLoading(true);
 
-    const qProducts = query(collection(db, 'products'), where('partyId', '==', partyId));
-    const unsubProducts = onSnapshot(qProducts, 
-      (snapshot) => setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product))),
-      (err) => handleFirestoreError(err, OperationType.LIST, 'products')
-    );
-
-    const qParticipants = query(collection(db, 'participants'), where('partyId', '==', partyId));
-    const unsubParticipants = onSnapshot(qParticipants, 
-      (snapshot) => {
-        const manualParticipants = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Participant));
-        setParticipants(manualParticipants);
-      },
-      (err) => handleFirestoreError(err, OperationType.LIST, 'participants')
-    );
-
-    const qLogs = query(collection(db, 'pantry_logs'), where('partyId', '==', partyId), orderBy('date', 'desc'), limit(100));
-    const unsubLogs = onSnapshot(qLogs, 
-      (snapshot) => setLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PantryLog))),
-      (err) => handleFirestoreError(err, OperationType.LIST, 'pantry_logs')
-    );
-
-    const qCategories = query(collection(db, 'categories'), where('partyId', '==', partyId));
-    const unsubCategories = onSnapshot(qCategories, 
-      (snapshot) => setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category))),
-      (err) => handleFirestoreError(err, OperationType.LIST, 'categories')
-    );
-
-    const qGroups = query(collection(db, 'groups'), where('partyId', '==', partyId));
-    const unsubGroups = onSnapshot(qGroups, 
-      (snapshot) => setGroups(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group))),
-      (err) => handleFirestoreError(err, OperationType.LIST, 'groups')
-    );
-
-    const qRoles = query(collection(db, 'participant_roles'), where('partyId', '==', partyId));
-    const unsubRoles = onSnapshot(qRoles, 
-      (snapshot) => setRoles(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ParticipantRole))),
-      (err) => handleFirestoreError(err, OperationType.LIST, 'participant_roles')
-    );
-
-    const qRequests = query(collection(db, 'product_requests'), where('partyId', '==', partyId), orderBy('createdAt', 'desc'));
-    const unsubRequests = onSnapshot(qRequests, 
-      (snapshot) => setRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProductRequest))),
-      (err) => handleFirestoreError(err, OperationType.LIST, 'product_requests')
-    );
-
-    let unsubAudit = () => {};
-    if (isOrganizer) {
-      const qAudit = query(collection(db, 'audit_logs'), where('partyId', '==', partyId), orderBy('timestamp', 'desc'), limit(100));
-      unsubAudit = onSnapshot(qAudit, 
-        (snapshot) => setAuditLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog))),
-        (err) => handleFirestoreError(err, OperationType.LIST, 'audit_logs')
-      );
-    } else {
-      setAuditLogs([]);
-    }
-
-    setLoading(false);
-
-    return () => {
-      unsubProducts();
-      unsubParticipants();
-      unsubLogs();
-      unsubCategories();
-      unsubGroups();
-      unsubRoles();
-      unsubRequests();
-      unsubAudit();
+    const pending = new Set(['products', 'participants']);
+    const markLoaded = (name: string) => {
+      pending.delete(name);
+      if (pending.size === 0) setLoading(false);
     };
-  }, [partyId, isOrganizer]);
 
-  return {
-    products,
-    participants,
-    logs,
-    categories,
-    groups,
-    roles,
-    requests,
-    auditLogs,
-    loading
-  };
+    const listen = <T,>(name: string, apply: (rows: T[]) => void) => {
+      const q = query(collection(db, name), where('partyId', '==', partyId));
+      return onSnapshot(
+        q,
+        (snap: QuerySnapshot<DocumentData>) => {
+          apply(snap.docs.map(d => ({ id: d.id, ...d.data() }) as T));
+          markLoaded(name);
+        },
+        err => {
+          console.warn(`Lettura ${name} non riuscita`, err);
+          if (name === 'products' || name === 'participants') setError('Non riesco a leggere i dati della festa. Controlla la connessione o i permessi.');
+          markLoaded(name);
+        }
+      );
+    };
+
+    const unsubs = [
+      listen<Product>('products', rows => setProducts(rows.sort(byName))),
+      listen<Participant>('participants', rows => setParticipants(rows.sort((a, b) => `${a.name} ${a.surname}`.localeCompare(`${b.name} ${b.surname}`, 'it')))),
+      listen<PantryLog>('pantry_logs', rows => setLogs(rows.sort(byDesc<PantryLog>('date')).slice(0, 300))),
+      listen<Category>('categories', rows => setCategories(rows.sort(byName))),
+      listen<Group>('groups', rows => setGroups(rows.sort(byName))),
+      listen<ParticipantRole>('participant_roles', rows => setRoles(rows.sort(byName))),
+      listen<ProductRequest>('product_requests', rows => setRequests(rows.sort(byDesc<ProductRequest>('createdAt')))),
+    ];
+    if (isOrganizer) unsubs.push(listen<AuditLog>('audit_logs', rows => setAuditLogs(rows.sort(byDesc<AuditLog>('timestamp')).slice(0, 300))));
+
+    return () => unsubs.forEach(u => u());
+  }, [partyId, isOrganizer, enabled]);
+
+  return { products, participants, logs, categories, groups, roles, requests, auditLogs, loading, error };
 }

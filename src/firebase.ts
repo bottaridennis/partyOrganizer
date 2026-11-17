@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { connectAuthEmulator, getAuth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 // Use Vite's glob import to optionally load the local config file.
 // This prevents build errors on GitHub Actions where the file is missing.
@@ -9,7 +9,15 @@ const localFirebaseConfig = (Object.values(localConfigs)[0] as any) || {};
 
 // Use environment variables if available (for GitHub Actions/Deploy), 
 // otherwise fallback to local config file
-const firebaseConfig = {
+const useEmulator = import.meta.env.VITE_USE_EMULATOR === 'true';
+
+const firebaseConfig = useEmulator ? {
+  apiKey: 'demo-key',
+  authDomain: 'demo-partypantry.firebaseapp.com',
+  projectId: 'demo-partypantry',
+  appId: 'demo-app',
+  firestoreDatabaseId: '(default)',
+} : {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || localFirebaseConfig.apiKey,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || localFirebaseConfig.authDomain,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || localFirebaseConfig.projectId,
@@ -25,6 +33,12 @@ const databaseId = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestor
   ? firebaseConfig.firestoreDatabaseId 
   : "(default)";
 export const db = getFirestore(app, databaseId);
+
+// Local development against `npm run emulators` (no real data touched).
+if (useEmulator) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+}
 
 export enum OperationType {
   CREATE = 'create',

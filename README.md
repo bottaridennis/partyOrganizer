@@ -1,46 +1,63 @@
-# Party Pantry Manager - Deploy Guide
+# Party Pantry 🎉
 
-Questa guida spiega come configurare il deploy automatico su GitHub Pages o Firebase Hosting.
+La dispensa condivisa della festa: chi porta cosa, cosa sta finendo, quanto avete speso e come pareggiare i conti. Tutto in tempo reale.
 
-## 1. Configurazione GitHub Secrets
+**Stack:** React 19 · Vite 6 · Tailwind CSS 4 · Firebase (Auth + Firestore) · Recharts.
 
-Per far funzionare il deploy automatico tramite GitHub Actions, devi aggiungere i seguenti Secrets nel tuo repository GitHub (**Settings > Secrets and variables > Actions > New repository secret**):
+## Funzionalità
 
-| Secret Name | Descrizione |
-|-------------|-------------|
-| `VITE_FIREBASE_API_KEY` | La tua Firebase API Key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth Domain |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase Project ID |
-| `VITE_FIREBASE_APP_ID` | Firebase App ID |
-| `VITE_FIREBASE_FIRESTORE_DATABASE_ID` | ID del database Firestore (solitamente `(default)`) |
+| Sezione | Cosa offre |
+| --- | --- |
+| **Panoramica** | Avvisi (richieste, scorte basse, scadenze), indicatori chiave, mix cibo/bevande, spesa per categoria e per persona, ultimi movimenti |
+| **Dispensa** | Ricerca, filtri rapidi (cibo, bevande, sta finendo, in scadenza, portati da me), filtri per categoria/persona, ordinamento, vista griglia o elenco |
+| **Lista della spesa** | Si compila da sola con i prodotti finiti o sotto soglia; spunta, «Comprato» per rifornire, copia della lista da incollare in chat |
+| **Partecipanti** | Membri con account e ospiti senza account, gruppi e compiti, cosa ha portato ognuno |
+| **Richieste** | I partecipanti chiedono prelievi/rifornimenti, gli organizzatori approvano (con controllo delle scorte); approvazione dei nuovi membri |
+| **Movimenti** | Cronologia per giorno; registrazione di movimenti con più prodotti che aggiorna le quantità |
+| **Contributi e spese** | Spesa per persona, quota a testa, «chi dà quanto a chi» per pareggiare i conti, esportazione CSV per Excel |
+| **Registro attività** | Chi ha fatto cosa (solo organizzatori) |
+| **Impostazioni** | Nome della festa, codice e link di invito (rigenerabile), permessi dei membri, categorie/gruppi/compiti, uscita o eliminazione della festa |
 
-## 2. Deploy su GitHub Pages
+Inoltre: link di invito diretti (`#/invito/CODICE`), tema chiaro/scuro, URL condivisibili per ogni sezione, layout mobile con barra in basso.
 
-Il workflow è già configurato nel file `.github/workflows/deploy.yml`. 
-Ogni volta che farai un `push` sul ramo `main`, GitHub Actions:
-1. Installerà le dipendenze.
-2. Eseguirà il build dell'app iniettando i Secrets.
-3. Pubblicherà il contenuto della cartella `dist` sul ramo `gh-pages`.
+### Ruoli
 
-**Nota:** Assicurati di abilitare GitHub Pages nelle impostazioni del repository, selezionando il ramo `gh-pages` come sorgente.
+- **Creatore** della festa: tutto, compresa la promozione a organizzatore.
+- **Organizzatore**: gestisce prodotti, partecipanti, richieste e approva i nuovi membri.
+- **Partecipante**: aggiunge prodotti propri o in comune, modifica quelli che porta, invia richieste di movimento.
+- **In attesa**: chi è entrato con il codice e aspetta l'approvazione. Può solo vedere la schermata di attesa.
 
-### Importante: Percorso Base (Base Path)
-Se il tuo sito sarà ospitato su un percorso come `https://utente.github.io/nome-repo/`, devi aggiornare il file `vite.config.ts` aggiungendo la proprietà `base`:
+Le regole sono applicate anche lato server in `firestore.rules`.
 
-```typescript
-export default defineConfig({
-  base: '/partyOrganizer/',
-  // ... altre config
-})
+## Sviluppo
+
+```bash
+npm install
+npm run dev
 ```
 
-## 3. Sviluppo Locale
+La configurazione Firebase viene letta da `firebase-applet-config.json` (locale, non versionato) oppure dalle variabili `VITE_FIREBASE_*` (vedi `.env.example`).
 
-Per lo sviluppo locale, l'app continuerà a usare il file `firebase-applet-config.json`. Se preferisci usare le variabili d'ambiente, crea un file `.env.local` basandoti su `.env.example`.
+### Con gli emulatori (nessun dato reale)
 
-## 4. Firebase Hosting (Opzionale)
+Serve Java. In tre terminali:
 
-Se preferisci usare Firebase Hosting invece di GitHub Pages:
-1. Installa firebase-tools: `npm install -g firebase-tools`
-2. Inizializza il progetto: `firebase init hosting`
-3. Usa il workflow di deploy ufficiale di Firebase fornito dal comando `firebase init`.
+```bash
+npm run emulators
+npm run seed:emulator
+npm run dev:emulator
+```
+
+Accedi con `giulia@demo.it` / `festa123` (organizzatrice). Altri account: `marco@demo.it`, `sara@demo.it`, `luca@demo.it` (in attesa).
+
+### Test delle regole Firestore
+
+```bash
+npm run test:rules
+```
+
+## Deploy
+
+Ogni push su `main` pubblica su GitHub Pages (`.github/workflows/deploy.yml`). Crea i secret `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_FIRESTORE_DATABASE_ID` in **Settings → Secrets and variables → Actions**, e abilita Pages sul ramo `gh-pages`.
+
+> **Ricorda di pubblicare le nuove regole:** `npx firebase deploy --only firestore:rules --project <id-progetto>`. Senza questo passaggio la falla sui ruoli resta aperta in produzione.
