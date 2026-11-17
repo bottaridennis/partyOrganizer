@@ -1,266 +1,214 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  Settings2, 
-  Users, 
-  ShieldCheck, 
-  PartyPopper, 
-  Users2,
-  UserPlus,
-  Layers,
-  X,
-  Loader2,
-  LogOut,
-  Beer,
-  Pizza
-} from 'lucide-react';
-import { Category, Group, ParticipantRole, Party, UserProfile } from '../../types';
-import { cn } from '../../lib/utils';
+import { Check, Copy, Crown, LogOut, Plus, RefreshCw, Trash2, UserMinus, X } from 'lucide-react';
+import { useParty } from '../../lib/party-context';
+import { Button, IconButton } from '../ui/Button';
+import { Field, Input, Select } from '../ui/Field';
+import { Avatar, Badge, Card, PageHeader } from '../ui/misc';
+import { ConfirmDialog } from '../ui/Modal';
+import { useToast } from '../ui/Toast';
+import { fullName } from '../../lib/utils';
+import { inviteLink } from '../../lib/router';
+import { memberDocId } from '../../hooks/useParties';
 
-export function PartySettings({ 
-  categories, 
-  groups, 
-  roles, 
-  parties,
-  userProfile,
-  onAddCategory, 
-  onDeleteCategory,
-  onAddGroup, 
-  onDeleteGroup,
-  onAddRole, 
-  onDeleteRole,
-  onAddParty,
-  onDeleteParty,
-  onLeaveParty,
-  onUpdateMemberRole,
-  onRemoveMember,
-  onClose
-}: { 
-  categories: Category[], 
-  groups: Group[], 
-  roles: ParticipantRole[], 
-  parties: Party[],
-  userProfile: UserProfile,
-  onAddCategory: (name: string) => Promise<void>, 
-  onDeleteCategory: (id: string) => Promise<void>,
-  onAddGroup: (name: string) => Promise<void>, 
-  onDeleteGroup: (id: string) => Promise<void>,
-  onAddRole: (name: string) => Promise<void>, 
-  onDeleteRole: (id: string) => Promise<void>,
-  onAddParty: (name: string) => Promise<void>,
-  onDeleteParty: (id: string) => Promise<void>,
-  onLeaveParty: (id: string) => Promise<void>,
-  onUpdateMemberRole: (partyId: string, uid: string, role: 'organizer' | 'participant') => Promise<void>,
-  onRemoveMember: (partyId: string, uid: string) => Promise<void>,
-  onClose: () => void
-}) {
-  const [activeTab, setActiveTab] = useState<'categories' | 'groups' | 'roles' | 'parties'>('categories');
-  const [newValue, setNewValue] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
+export function PartySettings() {
+  const { party, isOwner, data, actions, partyActions, user, confirmDelete } = useParty();
+  const toast = useToast();
+  const [name, setName] = useState(party.name);
+  const [savingName, setSavingName] = useState(false);
+  const [confirm, setConfirm] = useState<null | 'regen' | 'leave' | 'delete' | { remove: string; name: string }>(null);
+  const [copied, setCopied] = useState(false);
 
-  const currentParty = parties.find(w => w.id === userProfile.partyId);
-  const isOwner = currentParty?.ownerUid === userProfile.uid;
+  const members = party.members.map(uid => {
+    const p = data.participants.find(x => x.id === memberDocId(party.id!, uid) || x.uid === uid);
+    return {
+      uid,
+      name: fullName(p) || (uid === user.uid ? 'Tu' : 'Membro'),
+      email: p?.email,
+      imageUrl: p?.imageUrl,
+      role: uid === party.ownerUid ? 'owner' : party.memberRoles?.[uid] === 'organizer' ? 'organizer' : 'participant',
+      status: uid === party.ownerUid ? 'active' : party.memberStatus?.[uid] ?? 'active',
+    };
+  });
 
-  const handleAdd = async () => {
-    if (!newValue.trim()) return;
-    setIsAdding(true);
+  const saveName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || name.trim() === party.name) return;
+    setSavingName(true);
+    await toast.run(() => partyActions.renameParty(party.id!, name), 'Nome aggiornato');
+    setSavingName(false);
+  };
+
+  const copyLink = async () => {
     try {
-      if (activeTab === 'categories') await onAddCategory(newValue);
-      if (activeTab === 'groups') await onAddGroup(newValue);
-      if (activeTab === 'roles') await onAddRole(newValue);
-      if (activeTab === 'parties') await onAddParty(newValue);
-      setNewValue('');
-    } finally {
-      setIsAdding(false);
+      await navigator.clipboard.writeText(inviteLink(party.inviteCode));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error('Copia non riuscita.');
     }
   };
 
-  const tabs = [
-    { id: 'categories', label: 'Categorie', icon: Layers },
-    { id: 'groups', label: 'Gruppi Amici', icon: Users2 },
-    { id: 'roles', label: 'Ruoli Festa', icon: ShieldCheck },
-    { id: 'parties', label: 'Feste', icon: PartyPopper },
-  ];
-
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl bg-white rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col my-auto max-h-[95vh]">
-        <div className="p-4 md:p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-pink-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-pink-100">
-              <Settings2 className="w-6 h-6" />
+    <div className="max-w-3xl">
+      <PageHeader title="Impostazioni festa" description="Nome, inviti, membri e liste usate nei moduli." />
+
+      <div className="space-y-6">
+        <Card className="p-5 sm:p-6">
+          <h2 className="text-lg font-bold mb-4">Generale</h2>
+          <form onSubmit={saveName} className="flex flex-col sm:flex-row gap-2 sm:items-end">
+            <Field label="Nome della festa" htmlFor="s-name" className="flex-1" hint={!isOwner ? 'Solo chi ha creato la festa può rinominarla.' : undefined}>
+              <Input id="s-name" maxLength={80} value={name} disabled={!isOwner} onChange={e => setName(e.target.value)} />
+            </Field>
+            {isOwner && <Button type="submit" loading={savingName} disabled={!name.trim() || name.trim() === party.name}>Salva</Button>}
+          </form>
+
+          <div className="mt-6 p-4 rounded-2xl bg-surface-2 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <p className="text-sm text-ink-2">Codice invito</p>
+              <p className="font-display text-3xl font-extrabold tracking-[0.2em] tabular">{party.inviteCode}</p>
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">Impostazioni Festa</h3>
-              <p className="text-xs text-slate-500">Gestisci dizionari, feste e permessi</p>
+            <div className="flex gap-2">
+              <Button variant="secondary" icon={copied ? Check : Copy} onClick={copyLink}>{copied ? 'Copiato' : 'Copia link'}</Button>
+              {isOwner && <Button variant="ghost" icon={RefreshCw} onClick={() => setConfirm('regen')}>Nuovo codice</Button>}
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-all text-slate-400">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+        </Card>
 
-        <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-          <div className="w-full md:w-56 bg-slate-50 border-r border-slate-100 p-2 flex md:flex-col gap-1 overflow-x-auto no-scrollbar">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap",
-                  activeTab === tab.id ? "bg-white text-pink-600 shadow-sm" : "text-slate-500 hover:bg-white/50"
-                )}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1 p-6 md:p-8 overflow-y-auto">
-            <div className="max-w-2xl mx-auto space-y-8">
-              <div className="flex gap-3">
-                <input 
-                  className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all"
-                  placeholder={`Nuovo ${activeTab === 'groups' ? 'gruppo' : activeTab === 'roles' ? 'ruolo' : activeTab === 'parties' ? 'festa' : 'categoria'}...`}
-                  value={newValue}
-                  onChange={e => setNewValue(e.target.value)}
-                  onKeyPress={e => e.key === 'Enter' && handleAdd()}
-                />
-                <button 
-                  onClick={handleAdd}
-                  disabled={isAdding || !newValue.trim()}
-                  className="px-6 bg-pink-600 text-white font-bold rounded-xl hover:bg-pink-700 transition-all shadow-lg shadow-pink-100 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                  Aggiungi
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {activeTab === 'categories' && categories.map(item => (
-                  <DictionaryItem key={item.id} name={item.name} onDelete={() => onDeleteCategory(item.id!)} />
-                ))}
-                {activeTab === 'groups' && groups.map(item => (
-                  <DictionaryItem key={item.id} name={item.name} onDelete={() => onDeleteGroup(item.id!)} />
-                ))}
-                {activeTab === 'roles' && roles.map(item => (
-                  <DictionaryItem key={item.id} name={item.name} onDelete={() => onDeleteRole(item.id!)} />
-                ))}
-                {activeTab === 'parties' && parties.map(item => (
-                  <div key={item.id} className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between group hover:border-pink-200 transition-all">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center group-hover:bg-pink-50 group-hover:text-pink-600 transition-all">
-                        <PartyPopper className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900">{item.name}</p>
-                        <p className="text-[10px] font-mono text-slate-400">ID: {item.id}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.ownerUid === userProfile.uid ? (
-                        <button 
-                          onClick={() => onDeleteParty(item.id!)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                          title="Elimina Festa"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => onLeaveParty(item.id!)}
-                          className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-all"
-                          title="Abbandona Festa"
-                        >
-                          <LogOut className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {activeTab === 'parties' && isOwner && currentParty && (
-                <div className="mt-12 pt-8 border-t border-slate-100 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-lg font-bold text-slate-900">Gestione Amici</h4>
-                      <p className="text-xs text-slate-500">Gestisci gli accessi per la festa {currentParty.name}</p>
-                    </div>
-                    <div className="px-3 py-1.5 bg-pink-50 text-pink-600 rounded-xl text-xs font-bold border border-pink-100">
-                      Codice Invito: {currentParty.inviteCode}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {currentParty.members.map(memberUid => (
-                      <div key={memberUid} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-white text-slate-400 rounded-xl flex items-center justify-center border border-slate-200">
-                            <Users className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-900">{memberUid === userProfile.uid ? 'Tu (Organizzatore)' : memberUid}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={cn(
-                                "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
-                                currentParty.memberRoles?.[memberUid] === 'organizer' ? "bg-purple-100 text-purple-700" : "bg-pink-100 text-pink-700"
-                              )}>
-                                {currentParty.memberRoles?.[memberUid] || 'participant'}
-                              </span>
-                              <span className={cn(
-                                "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider",
-                                currentParty.memberStatus?.[memberUid] === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                              )}>
-                                {currentParty.memberStatus?.[memberUid] || 'pending'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {memberUid !== userProfile.uid && (
-                          <div className="flex items-center gap-2">
-                            <select 
-                              className="text-xs font-bold bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-pink-500"
-                              value={currentParty.memberRoles?.[memberUid] || 'participant'}
-                              onChange={(e) => onUpdateMemberRole(currentParty.id!, memberUid, e.target.value as any)}
-                            >
-                              <option value="participant">Partecipante</option>
-                              <option value="organizer">Organizzatore</option>
-                            </select>
-                            <button 
-                              onClick={() => onRemoveMember(currentParty.id!, memberUid)}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+        <Card className="p-5 sm:p-6">
+          <h2 className="text-lg font-bold">Membri con account</h2>
+          <p className="text-sm text-ink-2 mb-4">{isOwner ? 'Scegli chi può organizzare e rimuovi chi non partecipa più.' : 'Solo chi ha creato la festa può cambiare i permessi.'}</p>
+          <ul className="divide-y divide-line -mx-1">
+            {members.map(m => (
+              <li key={m.uid} className="flex items-center gap-3 py-3 px-1">
+                <Avatar name={m.name} src={m.imageUrl} size={40} />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold truncate">{m.name}{m.uid === user.uid && <span className="text-ink-3 font-normal"> (tu)</span>}</p>
+                  <p className="text-xs text-ink-3 truncate">{m.email}</p>
                 </div>
-              )}
-            </div>
-          </div>
+                {m.status === 'pending' && <Badge tone="warn">In attesa</Badge>}
+                {m.role === 'owner' ? (
+                  <Badge tone="brand" icon={Crown}>Creatore</Badge>
+                ) : isOwner ? (
+                  <>
+                    <Select
+                      aria-label={`Permessi di ${m.name}`}
+                      className="h-9 text-sm w-40"
+                      value={m.role}
+                      onChange={e => toast.run(() => partyActions.setMemberRole(party.id!, m.uid, e.target.value as 'organizer' | 'participant'), 'Permessi aggiornati')}
+                    >
+                      <option value="participant">Partecipante</option>
+                      <option value="organizer">Organizzatore</option>
+                    </Select>
+                    <IconButton icon={UserMinus} label={`Rimuovi ${m.name}`} variant="danger-ghost" size="sm" onClick={() => setConfirm({ remove: m.uid, name: m.name })} />
+                  </>
+                ) : (
+                  <Badge tone={m.role === 'organizer' ? 'brand' : 'neutral'}>{m.role === 'organizer' ? 'Organizzatore' : 'Partecipante'}</Badge>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <div className="grid md:grid-cols-3 gap-4">
+          <Dictionary title="Categorie" hint="Usate per i prodotti" items={data.categories} onAdd={n => actions.addDictionaryItem('category', n)} onDelete={i => confirmDelete({ type: 'category', id: i.id!, name: i.name })} />
+          <Dictionary title="Gruppi" hint="es. Famiglia, Colleghi" items={data.groups} onAdd={n => actions.addDictionaryItem('group', n)} onDelete={i => confirmDelete({ type: 'group', id: i.id!, name: i.name })} />
+          <Dictionary title="Compiti" hint="es. DJ, Barbecue" items={data.roles} onAdd={n => actions.addDictionaryItem('role', n)} onDelete={i => confirmDelete({ type: 'role', id: i.id!, name: i.name })} />
         </div>
+
+        <Card className="p-5 sm:p-6 border-danger/30">
+          <h2 className="text-lg font-bold text-danger">Zona pericolosa</h2>
+          {isOwner ? (
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <p className="flex-1 text-sm text-ink-2">Elimina la festa per tutti i membri. Non si può annullare.</p>
+              <Button variant="danger" icon={Trash2} onClick={() => setConfirm('delete')}>Elimina festa</Button>
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <p className="flex-1 text-sm text-ink-2">Esci dalla festa. Potrai rientrare con il codice invito.</p>
+              <Button variant="secondary" icon={LogOut} onClick={() => setConfirm('leave')}>Lascia la festa</Button>
+            </div>
+          )}
+        </Card>
       </div>
+
+      <ConfirmDialog
+        open={confirm === 'regen'}
+        onClose={() => setConfirm(null)}
+        tone="primary"
+        title="Generare un nuovo codice?"
+        message="Il codice e il link attuali smetteranno di funzionare. Chi è già nella festa non viene toccato."
+        confirmLabel="Genera"
+        onConfirm={async () => { await toast.run(() => partyActions.regenerateInviteCode(party.id!), 'Nuovo codice pronto'); }}
+      />
+      <ConfirmDialog
+        open={confirm === 'leave'}
+        onClose={() => setConfirm(null)}
+        title="Lasciare la festa?"
+        message={<>Non vedrai più la dispensa di <strong>{party.name}</strong>.</>}
+        confirmLabel="Lascia"
+        onConfirm={async () => { await toast.run(() => partyActions.leaveParty(party.id!, user.uid), 'Hai lasciato la festa'); }}
+      />
+      <ConfirmDialog
+        open={confirm === 'delete'}
+        onClose={() => setConfirm(null)}
+        title="Eliminare la festa?"
+        message={<>Tutti i membri perderanno l'accesso a <strong>{party.name}</strong>.</>}
+        typeToConfirm={party.name}
+        confirmLabel="Elimina per sempre"
+        onConfirm={async () => { await toast.run(() => partyActions.deleteParty(party.id!, user.uid), 'Festa eliminata'); }}
+      />
+      <ConfirmDialog
+        open={typeof confirm === 'object' && !!confirm}
+        onClose={() => setConfirm(null)}
+        title="Rimuovere il membro?"
+        message={<><strong>{typeof confirm === 'object' && confirm?.name}</strong> non vedrà più la festa. I prodotti che ha portato restano in dispensa.</>}
+        confirmLabel="Rimuovi"
+        onConfirm={async () => {
+          if (typeof confirm === 'object' && confirm) await toast.run(() => partyActions.removeMember(party.id!, confirm.remove), 'Membro rimosso');
+        }}
+      />
     </div>
   );
 }
 
-function DictionaryItem({ name, onDelete }: { name: string, onDelete: () => void }) {
+function Dictionary({ title, hint, items, onAdd, onDelete }: { title: string; hint: string; items: { id?: string; name: string }[]; onAdd: (name: string) => Promise<void>; onDelete: (item: { id?: string; name: string }) => void }) {
+  const toast = useToast();
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const v = value.trim();
+    if (!v) return;
+    if (items.some(i => i.name.toLowerCase() === v.toLowerCase())) {
+      toast.info(`"${v}" esiste già`);
+      return;
+    }
+    setBusy(true);
+    const ok = await toast.run(() => onAdd(v));
+    setBusy(false);
+    if (ok) setValue('');
+  };
+
   return (
-    <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between group hover:border-pink-200 transition-all">
-      <span className="font-bold text-slate-700">{name}</span>
-      <button 
-        onClick={onDelete}
-        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-      >
-        <Trash2 className="w-5 h-5" />
-      </button>
-    </div>
+    <Card className="p-5 flex flex-col">
+      <h2 className="text-base font-bold">{title}</h2>
+      <p className="text-xs text-ink-3 mb-3">{hint}</p>
+      <form onSubmit={add} className="flex gap-2 mb-3">
+        <Input aria-label={`Nuova voce in ${title}`} placeholder="Aggiungi…" maxLength={40} value={value} onChange={e => setValue(e.target.value)} className="h-10" />
+        <IconButton icon={Plus} label="Aggiungi" variant="soft" type="submit" disabled={busy || !value.trim()} />
+      </form>
+      <div className="flex flex-wrap gap-1.5">
+        {items.length === 0 && <p className="text-sm text-ink-3">Nessuna voce.</p>}
+        {items.map(i => (
+          <span key={i.id} className="inline-flex items-center gap-1 h-8 pl-3 pr-1 rounded-lg bg-surface-2 text-sm font-medium">
+            {i.name}
+            <button aria-label={`Elimina ${i.name}`} onClick={() => onDelete(i)} className="w-6 h-6 grid place-items-center rounded-md text-ink-3 hover:text-danger hover:bg-danger-soft">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </span>
+        ))}
+      </div>
+    </Card>
   );
 }

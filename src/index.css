@@ -1,1 +1,175 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------
+   Design tokens. Every colour used by the UI comes from here, so the
+   light and dark themes stay in sync.
+   ------------------------------------------------------------------ */
+:root {
+  --bg: #faf7f2;
+  --surface: #ffffff;
+  --surface-2: #f4f0ea;
+  --surface-3: #ebe5dc;
+  --line: #e7e1d8;
+  --line-strong: #d6cec2;
+  --ink: #1d1a24;
+  --ink-2: #5d5868;
+  --ink-3: #8c8696;
+
+  --brand: #6d3df5;
+  --brand-hover: #5b2be0;
+  --brand-ink: #ffffff;
+  --brand-soft: #efe9ff;
+  --brand-soft-ink: #4b23b8;
+
+  --accent: #ff6a3d;
+  --accent-soft: #ffece4;
+  --accent-soft-ink: #b23a12;
+
+  --ok: #0f9d6b;
+  --ok-soft: #e1f6ed;
+  --ok-soft-ink: #0a6a48;
+  --warn: #d98a00;
+  --warn-soft: #fff3d6;
+  --warn-soft-ink: #8a5200;
+  --danger: #e0364f;
+  --danger-hover: #c62a42;
+  --danger-soft: #fde7ea;
+  --danger-soft-ink: #a3182e;
+  --info-soft: #e4f0ff;
+  --info-soft-ink: #1d5bb8;
+
+  --shadow-color: 32 20 60;
+  --ring: #6d3df5;
+}
+
+.dark {
+  --bg: #14111c;
+  --surface: #1d1928;
+  --surface-2: #262133;
+  --surface-3: #312b40;
+  --line: #2f2a3c;
+  --line-strong: #433b55;
+  --ink: #f4f1fa;
+  --ink-2: #b9b2c8;
+  --ink-3: #8a829b;
+
+  --brand: #8b67ff;
+  --brand-hover: #9d7dff;
+  --brand-ink: #ffffff;
+  --brand-soft: #2c2350;
+  --brand-soft-ink: #c9b8ff;
+
+  --accent: #ff7d55;
+  --accent-soft: #3d2420;
+  --accent-soft-ink: #ffb79f;
+
+  --ok: #2fc58c;
+  --ok-soft: #173329;
+  --ok-soft-ink: #7fe0b8;
+  --warn: #f2a922;
+  --warn-soft: #3a2d14;
+  --warn-soft-ink: #ffd27a;
+  --danger: #ff5a72;
+  --danger-hover: #ff7489;
+  --danger-soft: #3d1c24;
+  --danger-soft-ink: #ffa3b1;
+  --info-soft: #1b2a42;
+  --info-soft-ink: #9cc4ff;
+
+  --shadow-color: 0 0 0;
+  --ring: #a88bff;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-ink: var(--brand-soft-ink);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-ink: var(--accent-soft-ink);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-soft-ink: var(--ok-soft-ink);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-soft-ink: var(--warn-soft-ink);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-soft-ink: var(--danger-soft-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-soft-ink: var(--info-soft-ink);
+
+  --shadow-card: 0 1px 2px rgb(var(--shadow-color) / 0.04), 0 4px 16px -6px rgb(var(--shadow-color) / 0.08);
+  --shadow-pop: 0 12px 40px -12px rgb(var(--shadow-color) / 0.28), 0 2px 6px rgb(var(--shadow-color) / 0.06);
+  --shadow-brand: 0 8px 22px -8px color-mix(in srgb, var(--brand) 70%, transparent);
+
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
+
+  --animate-fade-in: fade-in 0.25s ease-out both;
+  --animate-rise: rise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-sheet: sheet 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: pop 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes rise { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes sheet { from { transform: translateY(100%) } to { transform: none } }
+@keyframes pop { from { opacity: 0; transform: scale(0.96) } to { opacity: 1; transform: none } }
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  input, select, textarea, button { font: inherit; }
+  ::selection { background: var(--brand-soft); color: var(--brand-soft-ink); }
+}
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .pb-safe { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .confetti-bg {
+    background-image:
+      radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--accent) 35%, transparent) 0 3px, transparent 4px),
+      radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--brand) 40%, transparent) 0 4px, transparent 5px),
+      radial-gradient(circle at 70% 78%, color-mix(in srgb, var(--warn) 45%, transparent) 0 3px, transparent 4px),
+      radial-gradient(circle at 24% 84%, color-mix(in srgb, var(--ok) 35%, transparent) 0 3px, transparent 4px),
+      radial-gradient(circle at 92% 52%, color-mix(in srgb, var(--accent) 30%, transparent) 0 2px, transparent 3px),
+      radial-gradient(circle at 6% 55%, color-mix(in srgb, var(--brand) 30%, transparent) 0 2px, transparent 3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -1,114 +1,116 @@
 import { useState, useEffect } from 'react';
-import { 
-  onAuthStateChanged, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
+import {
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
   updateProfile,
-  User
+  User,
 } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { UserProfile } from '../types';
+
+const AUTH_ERRORS: Record<string, string> = {
+  'auth/invalid-credential': 'Email o password non corrette.',
+  'auth/wrong-password': 'Email o password non corrette.',
+  'auth/user-not-found': 'Nessun account con questa email.',
+  'auth/invalid-email': 'L\'indirizzo email non è valido.',
+  'auth/email-already-in-use': 'Esiste già un account con questa email. Prova ad accedere.',
+  'auth/weak-password': 'La password deve avere almeno 6 caratteri.',
+  'auth/too-many-requests': 'Troppi tentativi. Riprova tra qualche minuto.',
+  'auth/network-request-failed': 'Connessione assente. Controlla la rete e riprova.',
+  'auth/popup-blocked': 'Il browser ha bloccato la finestra di Google. Consenti i popup e riprova.',
+};
+
+export function authErrorMessage(err: unknown): string | null {
+  const code = (err as { code?: string })?.code || '';
+  if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return null;
+  return AUTH_ERRORS[code] || 'Accesso non riuscito. Riprova.';
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubProfile: (() => void) | undefined;
+
+    const unsubAuth = onAuthStateChanged(auth, firebaseUser => {
+      unsubProfile?.();
+      unsubProfile = undefined;
       setUser(firebaseUser);
-      if (firebaseUser) {
-        // Listen to user profile
-        const unsubProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
-          if (docSnap.exists()) {
-            setUserProfile({ uid: firebaseUser.uid, ...docSnap.data() } as UserProfile);
+
+      if (!firebaseUser) {
+        setUserProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      unsubProfile = onSnapshot(
+        doc(db, 'users', firebaseUser.uid),
+        snap => {
+          if (snap.exists()) {
+            setUserProfile({ uid: firebaseUser.uid, ...snap.data() } as UserProfile);
           } else {
-            // Create initial profile if it doesn't exist
             const initialProfile: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || 'Amico',
+              displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Amico',
               photoURL: firebaseUser.photoURL || '',
               role: 'participant',
-              partyIds: []
+              partyIds: [],
             };
-            setDoc(doc(db, 'users', firebaseUser.uid), initialProfile);
+            setDoc(doc(db, 'users', firebaseUser.uid), initialProfile).catch(err => console.error('Creazione profilo non riuscita', err));
             setUserProfile(initialProfile);
           }
           setLoading(false);
-        });
-        return () => unsubProfile();
-      } else {
-        setUserProfile(null);
-        setLoading(false);
-      }
+        },
+        err => {
+          console.error('Profilo non leggibile', err);
+          setLoading(false);
+        }
+      );
     });
 
-    return () => unsubAuth();
+    return () => {
+      unsubProfile?.();
+      unsubAuth();
+    };
   }, []);
 
   const loginWithGoogle = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    await signInWithPopup(auth, new GoogleAuthProvider());
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    setError(null);
-    setLoading(true);
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    await signInWithEmailAndPassword(auth, email.trim(), pass);
   };
 
   const registerWithEmail = async (email: string, pass: string, name: string) => {
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await createUserWithEmailAndPassword(auth, email, pass);
-      await updateProfile(res.user, { displayName: name });
-      
-      const initialProfile: UserProfile = {
-        uid: res.user.uid,
-        email: email,
-        displayName: name,
-        role: 'participant',
-        partyIds: []
-      };
-      await setDoc(doc(db, 'users', res.user.uid), initialProfile);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    const res = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    await updateProfile(res.user, { displayName: name.trim() });
+    const initialProfile: UserProfile = {
+      uid: res.user.uid,
+      email: email.trim(),
+      displayName: name.trim(),
+      photoURL: '',
+      role: 'participant',
+      partyIds: [],
+    };
+    await setDoc(doc(db, 'users', res.user.uid), initialProfile);
+  };
+
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email.trim());
   };
 
   const logout = () => signOut(auth);
 
-  return {
-    user,
-    userProfile,
-    loading,
-    error,
-    loginWithGoogle,
-    loginWithEmail,
-    registerWithEmail,
-    logout
-  };
+  return { user, userProfile, loading, loginWithGoogle, loginWithEmail, registerWithEmail, resetPassword, logout };
 }

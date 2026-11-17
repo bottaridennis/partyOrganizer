@@ -1,12 +1,3 @@
-export interface SerializedItem {
-  id: string;
-  code: string; // Unique barcode for this specific unit
-  status: 'active' | 'consumed' | 'assigned';
-  assignedTo?: string; // Participant ID
-  notes?: string;
-  fillLevel: number; // 0-100%
-}
-
 export interface Product {
   id?: string;
   partyId: string; // Renamed from warehouseId
@@ -25,7 +16,7 @@ export interface Product {
   labels: string[]; // Alcolico, Analcolico, Senza Glutine, etc.
   allergens: string;
   imageUrl?: string;
-  broughtBy: string; // Participant ID or "common"
+  broughtBy: string; // uid of a member, participant id for guests without account, or "common"
   lastUpdated: string;
   updatedBy: string;
   customFields?: { key: string; value: string }[];
@@ -81,6 +72,7 @@ export interface ProductRequest {
   handledAt?: string;
   handledBy?: string;
   notes?: string;
+  rejectionReason?: string;
 }
 
 export interface Participant {
